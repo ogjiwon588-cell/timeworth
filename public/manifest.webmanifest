@@ -1,0 +1,13 @@
+{
+    "name": "TimeWorth",
+    "short_name": "TimeWorth",
+    "description": "시급과 시간을 입력하면 금액을 바로 계산해주는 앱",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0a0a0a",
+    "theme_color": "#0a0a0a",
+    "icons": [
+      { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+      { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+    ]
+  }
