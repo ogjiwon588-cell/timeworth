@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 function formatKRW(n: number) {
@@ -12,10 +13,9 @@ function toNum(v: string | null) {
   return Number.isFinite(n) ? n : 0;
 }
 
-export default function CardPage() {
+function CardInner() {
   const sp = useSearchParams();
 
-  // ✅ 메모 쓰지 말고, 그냥 매 렌더마다 읽기
   const pay = toNum(sp.get("pay"));
   const wage = toNum(sp.get("wage"));
   const h = toNum(sp.get("h"));
@@ -47,11 +47,11 @@ export default function CardPage() {
             </div>
             <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
               <div className="text-xs text-neutral-400">시간</div>
-              <div className="mt-1 font-semibold">{h >= 0 ? `${Math.floor(h)}h` : "—"}</div>
+              <div className="mt-1 font-semibold">{`${Math.floor(h)}h`}</div>
             </div>
             <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-3">
               <div className="text-xs text-neutral-400">분</div>
-              <div className="mt-1 font-semibold">{m >= 0 ? `${Math.floor(m)}m` : "—"}</div>
+              <div className="mt-1 font-semibold">{`${Math.floor(m)}m`}</div>
             </div>
           </div>
 
@@ -69,5 +69,22 @@ export default function CardPage() {
         </a>
       </div>
     </main>
+  );
+}
+
+export default function CardPage() {
+  // ✅ 빌드(prerender) 단계에서 useSearchParams 때문에 터지는 걸 막아줌
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-neutral-950 text-neutral-100">
+          <div className="mx-auto max-w-md px-5 py-10 text-neutral-400">
+            카드 불러오는 중...
+          </div>
+        </main>
+      }
+    >
+      <CardInner />
+    </Suspense>
   );
 }
