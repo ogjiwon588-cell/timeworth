@@ -22,50 +22,57 @@ export default function Home() {
   const [hoursDigits, setHoursDigits] = useState<string>("");
   const [minutesDigits, setMinutesDigits] = useState<string>("");
 
-  // ✅ 이번 방문에서 사용자가 직접 입력을 건드렸을 때만 CTA 노출
   const [interacted, setInteracted] = useState(false);
 
-  const { pay, safeMinutes } = useMemo(() => {
-    const wage = Number(wageDigits);
+  // ✅ 주휴 옵션 (MVP: 주 15시간 이상 + 주5일 기준 "하루치" 추가 가정)
+  const [includeWeeklyHolidayPay, setIncludeWeeklyHolidayPay] = useState(false);
+
+  const { pay, safeMinutes, workedHoursFloat, wage } = useMemo(() => {
+    const wageN = Number(wageDigits);
     const hours = Number(hoursDigits);
     const minutes = Number(minutesDigits);
 
-    if (!isFinite(wage) || !isFinite(hours) || !isFinite(minutes)) {
-      return { pay: 0, safeMinutes: 0 };
+    if (!isFinite(wageN) || !isFinite(hours) || !isFinite(minutes)) {
+      return { pay: 0, safeMinutes: 0, workedHoursFloat: 0, wage: 0 };
     }
-    if (wage <= 0 || hours < 0 || minutes < 0) {
-      return { pay: 0, safeMinutes: 0 };
+    if (wageN <= 0 || hours < 0 || minutes < 0) {
+      return { pay: 0, safeMinutes: 0, workedHoursFloat: 0, wage: 0 };
     }
 
     const safeH = Math.floor(hours);
     const safeM = Math.min(59, Math.floor(minutes));
     const totalMinutes = safeH * 60 + safeM;
 
-    return { pay: (wage * totalMinutes) / 60, safeMinutes: safeM };
+    return {
+      wage: wageN,
+      pay: (wageN * totalMinutes) / 60,
+      safeMinutes: safeM,
+      workedHoursFloat: totalMinutes / 60,
+    };
   }, [wageDigits, hoursDigits, minutesDigits]);
 
   const hasResult = interacted && pay > 0;
 
+  // ✅ 주휴 포함 예상(하루치 추가 가정)
+  const weeklyHolidayPay = includeWeeklyHolidayPay ? wage * workedHoursFloat : 0;
+  const payWithWeeklyHoliday = pay + weeklyHolidayPay;
+
   const shareText = useMemo(() => {
-    const wage = wageDigits ? `${formatNumberKR(wageDigits)}원` : "시급";
+    const wageText = wageDigits ? `${formatNumberKR(wageDigits)}원` : "시급";
     const h = hoursDigits ? `${digitsOnly(hoursDigits)}시간` : "시간";
     const m = minutesDigits ? `${safeMinutes}분` : "분";
     const result = formatKRWFromNumber(pay);
-    return `오늘 알바/작업으로 ${result} 벌었음. (시급 ${wage}, ${h} ${m})\nTimeWorth로 3초 계산:`;
+    return `오늘 알바/작업으로 ${result} 벌었음. (시급 ${wageText}, ${h} ${m})\nTimeWorth로 3초 계산:`;
   }, [wageDigits, hoursDigits, minutesDigits, pay, safeMinutes]);
 
   async function onShare() {
     const url = window.location.href;
-
     try {
       if (navigator.share) {
         await navigator.share({ title: "TimeWorth", text: shareText, url });
         return;
       }
-    } catch {
-      // ignore cancellation
-    }
-
+    } catch {}
     try {
       await navigator.clipboard.writeText(`${shareText}\n${url}`);
       alert("공유 문구 + 링크를 복사했어! 친구한테 붙여넣기 하면 돼.");
@@ -74,15 +81,13 @@ export default function Home() {
     }
   }
 
-  const cardHref = `/card?pay=${encodeURIComponent(
-    Math.round(pay)
-  )}&wage=${encodeURIComponent(
-    Number(wageDigits)
-  )}&h=${encodeURIComponent(
-    Number(hoursDigits)
-  )}&m=${encodeURIComponent(
-    safeMinutes
-  )}`;
+  const cardHref = useMemo(() => {
+    const w = Number(wageDigits || "0");
+    const h = Number(hoursDigits || "0");
+    const m = Number(safeMinutes || 0);
+    const p = Math.round(pay || 0);
+    return `/card?pay=${p}&wage=${w}&h=${h}&m=${m}`;
+  }, [pay, wageDigits, hoursDigits, safeMinutes]);
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100">
@@ -143,11 +148,47 @@ export default function Home() {
             </div>
           </div>
 
+          {/* ✅ 주휴 옵션 */}
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+            <label className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4"
+                checked={includeWeeklyHolidayPay}
+                onChange={(e) => {
+                  setInteracted(true);
+                  setIncludeWeeklyHolidayPay(e.target.checked);
+                }}
+              />
+              <div>
+                <div className="text-sm font-semibold text-neutral-100">
+                  주휴수당 포함(주 15시간↑ 가정)
+                </div>
+                <div className="mt-1 text-xs text-neutral-400">
+                  MVP 계산: 주5일 기준 “하루 평균 근로시간(오늘 입력한 시간)”만큼 추가 지급을 가정해요.
+                  (정확 계산은 주 근무일/주 총시간이 필요)
+                </div>
+              </div>
+            </label>
+          </div>
+
           <div className="rounded-2xl bg-neutral-900 p-5">
             <div className="text-sm text-neutral-400">결과</div>
-            <div className="mt-1 text-4xl font-semibold tracking-tight">
-              {formatKRWFromNumber(pay)}
+
+            <div className="mt-2 space-y-2">
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm text-neutral-400">기본 급여</span>
+                <span className="text-2xl font-semibold">{formatKRWFromNumber(pay)}</span>
+              </div>
+
+              {includeWeeklyHolidayPay ? (
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm text-neutral-400">주휴 포함 예상</span>
+                  <span className="text-2xl font-semibold">{formatKRWFromNumber(payWithWeeklyHoliday)}</span>
+                </div>
+              ) : null}
             </div>
+
             <div className="mt-2 text-sm text-neutral-400">Your time is not free.</div>
 
             {hasResult ? (
@@ -188,7 +229,7 @@ export default function Home() {
         </section>
 
         <footer className="mt-6 text-xs text-neutral-500">
-          * 이 앱은 로컬 계산만 사용해요. 로그인/서버/추적 없음.
+          * 이 앱은 로컬 계산만 사용해요. 주휴수당은 “주 15시간 이상 + 주5일” 가정의 간편 추정치입니다.
         </footer>
       </div>
     </main>
