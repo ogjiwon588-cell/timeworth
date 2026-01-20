@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 const BANK_NAME = "toss"; // TODO
-const ACCOUNT_HOLDER = "예금주주"; // TODO
+const ACCOUNT_HOLDER = "예금주"; // TODO
 const ACCOUNT_NUMBER = "1908-3630-1248"; // TODO
 
 const SUGGESTED = [1000, 3000, 5000];
@@ -24,7 +24,7 @@ export default function DonatePage() {
   async function copyText(text: string, ok: string, fail: string) {
     try {
       await navigator.clipboard.writeText(text);
-      setToast(오케이);
+      setToast("오케이");
       window.setTimeout(() => setToast(""), 2200);
     } catch {
       setToast(fail);
